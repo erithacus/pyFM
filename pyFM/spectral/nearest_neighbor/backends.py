@@ -5,9 +5,7 @@ number of neighbours.
 """
 
 import numpy as np
-import sklearn
 from scipy.spatial import cKDTree
-from sklearn.neighbors import NearestNeighbors
 
 from .config import get_config
 
@@ -105,19 +103,44 @@ def brute_query(X, Y, k=1, return_distance=False, n_jobs=None, working_memory=No
     matches : np.ndarray
         (n2,) if k = 1 else (n2, k). Index in X of each neighbour.
     """
-    if working_memory is None:
-        working_memory = get_config("working_memory_mb")
+    # Pure NumPy implementation with chunking to avoid loading blocked sklearn DLLs
+    n1, p = X.shape
+    n2 = Y.shape[0]
 
-    with sklearn.config_context(working_memory=working_memory):
-        tree = NearestNeighbors(n_neighbors=k, algorithm="brute", n_jobs=n_jobs)
-        tree.fit(X)
-        dists, matches = tree.kneighbors(Y)  # (n2, k)
+    # Batch over Y to respect working_memory
+    chunk_size = max(1, min(n2, 2048))
+    matches_list = []
+    dists_list = []
 
-    if k == 1:
-        dists = dists.squeeze(-1)  # (n2,)
-        matches = matches.squeeze(-1)  # (n2,)
+    X_norm_sq = np.sum(X**2, axis=1)
 
+    for i in range(0, n2, chunk_size):
+        Y_chunk = Y[i : i + chunk_size]
+        Y_norm_sq = np.sum(Y_chunk**2, axis=1)
+        # (chunk_size, n1) squared distance matrix
+        d2 = Y_norm_sq[:, None] + X_norm_sq[None, :] - 2 * (Y_chunk @ X.T)
+        np.maximum(d2, 0, out=d2)
+
+        if k == 1:
+            idx = np.argmin(d2, axis=1)
+            matches_list.append(idx)
+            if return_distance:
+                dists_list.append(np.sqrt(d2[np.arange(len(idx)), idx]))
+        else:
+            idx = np.argpartition(d2, k, axis=1)[:, :k]
+            # sort the k nearest
+            row_idx = np.arange(len(idx))[:, None]
+            part_dists = d2[row_idx, idx]
+            sort_order = np.argsort(part_dists, axis=1)
+            sorted_idx = np.take_along_axis(idx, sort_order, axis=1)
+            matches_list.append(sorted_idx)
+            if return_distance:
+                sorted_dists = np.sqrt(np.take_along_axis(part_dists, sort_order, axis=1))
+                dists_list.append(sorted_dists)
+
+    matches = np.concatenate(matches_list, axis=0)
     if return_distance:
+        dists = np.concatenate(dists_list, axis=0)
         return dists, matches
     return matches
 
