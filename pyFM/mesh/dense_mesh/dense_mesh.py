@@ -45,9 +45,9 @@ def build_local_mat(
     N = mesh1.n_vertices
     rho_dijkstra = 3 * rho if correct_dist else rho
 
-    radius_tree = KDTree(mesh1.vertlist, leaf_size=20)
+    radius_tree = KDTree(mesh1.vertices, leaf_size=20)
 
-    edge_length_graph = build_edge_length_graph(mesh1.vertlist, mesh1.edges)
+    edge_length_graph = build_edge_length_graph(mesh1.vertices, mesh1.edges)
 
     # First local dijkstra run
     In, Jn, Vn, unseen_inds = compute_sparse_dijkstra(
@@ -124,7 +124,7 @@ def build_local_mat(
                 [],
                 [],
                 [],
-                mesh1.vertlist,
+                mesh1.vertices,
                 correct_dist=correct_dist,
                 radius_tree=radius_tree,
                 rho_real=rho,
@@ -323,7 +323,7 @@ def process_mesh(
         backend=backend,
         verbose=verbose,
     )
-    # subsample = np.unique(knn_query(mesh1.vertlist, vert_sub1))
+    # subsample = np.unique(knn_query(mesh1.vertices, vert_sub1))
 
     if verbose:
         print(

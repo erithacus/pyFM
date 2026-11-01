@@ -49,7 +49,7 @@ def poisson_sample_meshlab(
     ms = pymeshlab.MeshSet()
     if mesh is not None:
         ms.add_mesh(
-            pymeshlab.Mesh(vertex_matrix=mesh.vertlist, face_matrix=mesh.facelist)
+            pymeshlab.Mesh(vertex_matrix=mesh.vertices, face_matrix=mesh.faces)
         )
     elif path is not None:
         ms.load_new_mesh(path)
@@ -98,14 +98,14 @@ def poisson_sample_mesh(
             )
         n_samples_arg = n_samples
         sample_vert = poisson_sample_meshlab(mesh=mesh, n_samples=n_samples_arg)
-        subsample = np.unique(knn_query(mesh.vertlist, sample_vert))
+        subsample = np.unique(knn_query(mesh.vertices, sample_vert))
 
         n_samples_curr = subsample.size
 
         while force_n_samples and n_samples_curr < n_samples:
             n_samples_arg = n_samples_arg * 2
             sample_vert = poisson_sample_meshlab(mesh=mesh, n_samples=n_samples_arg)
-            subsample = np.unique(knn_query(mesh.vertlist, sample_vert))
+            subsample = np.unique(knn_query(mesh.vertices, sample_vert))
             n_samples_curr = subsample.size
 
         if force_n_samples:
@@ -120,7 +120,7 @@ def poisson_sample_mesh(
     if hasattr(mesh, "farthest_point_sampling"):
         return mesh.farthest_point_sampling(n_samples, geodesic=False, verbose=verbose)
 
-    vertices = getattr(mesh, "vertlist", getattr(mesh, "vertices", mesh))
+    vertices = getattr(mesh, "vertices", getattr(mesh, "vertlist", mesh))
     n_pts = len(vertices)
     if n_samples >= n_pts:
         return np.arange(n_pts)

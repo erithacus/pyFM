@@ -357,17 +357,17 @@ def compute_sparse_dijkstra(
         )
         n_clusters = subsample.size
     kmeans = KMeans(n_clusters=n_clusters, max_iter=10).fit(
-        mesh1.vertlist[subsample].copy()
+        mesh1.vertices[subsample].copy()
     )
     # kmeans_labels = np.random.choice(n_clusters, size=subsample.shape[0], replace=True)
     if edge_length_graph is None:
-        graph = build_edge_length_graph(mesh1.vertlist, mesh1.edges)
+        graph = build_edge_length_graph(mesh1.vertices, mesh1.edges)
     else:
         graph = edge_length_graph
 
     # Build Tree for radius search
     if radius_tree is None:
-        tree = KDTree(mesh1.vertlist, leaf_size=20)
+        tree = KDTree(mesh1.vertices, leaf_size=20)
     else:
         tree = radius_tree
 
@@ -380,7 +380,7 @@ def compute_sparse_dijkstra(
 
         I, J, V = in_cluster_dijkstra(  # noqa E741
             kmeans.labels_,
-            mesh1.vertlist,
+            mesh1.vertices,
             subsample,
             tree,
             graph,
