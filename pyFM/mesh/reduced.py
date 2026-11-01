@@ -421,6 +421,7 @@ class ReducedMesh(TriMesh):
         self,
         FM,
         target_mesh,
+        use_adj=True,
         n_jobs=None,
     ):
         """
@@ -432,6 +433,8 @@ class ReducedMesh(TriMesh):
             Functional map mapping functions from source (self) to target.
         target_mesh : ReducedMesh or TriMesh
             Target mesh.
+        use_adj : bool, optional
+            Whether to use the adjoint embedding (default: True).
         n_jobs : int, optional
             Number of parallel jobs for nearest-neighbor search.
 
@@ -446,4 +449,4 @@ class ReducedMesh(TriMesh):
         else:
             dense_basis_target = target_mesh.eigenvectors
 
-        return FM_to_p2p(FM, dense_basis_source, dense_basis_target, use_adj=True, n_jobs=n_jobs)
+        return FM_to_p2p(FM, dense_basis_source, dense_basis_target, use_adj=use_adj, n_jobs=n_jobs)
