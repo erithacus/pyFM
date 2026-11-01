@@ -4,7 +4,12 @@ import scipy.sparse as sparse
 from tqdm.auto import tqdm
 from sklearn.neighbors import NearestNeighbors
 
-import pymeshlab
+try:
+    import pymeshlab
+except ImportError:
+    pymeshlab = None
+
+from .. import geometry as geom
 
 
 def poisson_sample_meshlab(
@@ -36,6 +41,11 @@ def poisson_sample_meshlab(
     samples : np.ndarray
         (n_samples, 3) coordinates of samples
     """
+    if pymeshlab is None:
+        raise ImportError(
+            "pymeshlab is required for MeshLab Poisson disk sampling. "
+            "Please install it with `pip install pymeshlab` or use backend='fps'."
+        )
     ms = pymeshlab.MeshSet()
     if mesh is not None:
         ms.add_mesh(
@@ -50,7 +60,9 @@ def poisson_sample_meshlab(
     return ms.current_mesh().vertex_matrix()
 
 
-def poisson_sample_mesh(mesh, n_samples=1000, force_n_samples=False):
+def poisson_sample_mesh(
+    mesh, n_samples=1000, force_n_samples=False, backend="auto", verbose=False
+):
     """
     Samples points on a mesh using poisson disk sampling.
 
@@ -71,23 +83,54 @@ def poisson_sample_mesh(mesh, n_samples=1000, force_n_samples=False):
         indices of the subsample in the mesh
     """
 
-    n_samples_arg = n_samples
-    sample_vert = poisson_sample_meshlab(mesh=mesh, n_samples=n_samples_arg)
-    subsample = np.unique(knn_query(mesh.vertlist, sample_vert))
+    if backend not in ("auto", "meshlab", "fps"):
+        raise ValueError(
+            f"Unknown sampling backend: {backend!r}. Expected 'auto', 'meshlab', or 'fps'."
+        )
 
-    n_samples_curr = subsample.size
+    use_meshlab = backend == "meshlab" or (backend == "auto" and pymeshlab is not None)
 
-    while force_n_samples and n_samples_curr < n_samples:
-
-        n_samples_arg = n_samples_arg * 2
+    if use_meshlab:
+        if pymeshlab is None:
+            raise ImportError(
+                "pymeshlab is required for MeshLab Poisson disk sampling. "
+                "Please install it with `pip install pymeshlab` or use backend='fps'."
+            )
+        n_samples_arg = n_samples
         sample_vert = poisson_sample_meshlab(mesh=mesh, n_samples=n_samples_arg)
         subsample = np.unique(knn_query(mesh.vertlist, sample_vert))
 
         n_samples_curr = subsample.size
 
-        subsample = subsample[:n_samples]
+        while force_n_samples and n_samples_curr < n_samples:
+            n_samples_arg = n_samples_arg * 2
+            sample_vert = poisson_sample_meshlab(mesh=mesh, n_samples=n_samples_arg)
+            subsample = np.unique(knn_query(mesh.vertlist, sample_vert))
+            n_samples_curr = subsample.size
 
-    return subsample
+        if force_n_samples:
+            subsample = subsample[:n_samples]
+
+        return subsample
+
+    if verbose and backend == "auto":
+        print("pymeshlab not available; falling back to pyFM native Euclidean FPS.")
+
+    # Fallback to pyFM native Euclidean farthest point sampling
+    if hasattr(mesh, "farthest_point_sampling"):
+        return mesh.farthest_point_sampling(n_samples, geodesic=False, verbose=verbose)
+
+    vertices = getattr(mesh, "vertlist", getattr(mesh, "vertices", mesh))
+    n_pts = len(vertices)
+    if n_samples >= n_pts:
+        return np.arange(n_pts)
+
+    def dist_func(i):
+        return np.linalg.norm(vertices - vertices[i, None, :], axis=1)
+
+    return geom.farthest_point_sampling_call(
+        dist_func, n_samples, n_points=n_pts, verbose=verbose
+    )
 
 
 def knn_query(X, Y, k=1, return_distance=False, n_jobs=1):

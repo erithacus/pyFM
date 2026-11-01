@@ -278,6 +278,7 @@ def process_mesh(
     self_weight_limit=0.5,
     n_jobs=1,
     n_clusters=4,
+    backend="auto",
     verbose=False,
 ):
     """
@@ -316,7 +317,11 @@ def process_mesh(
         start_time = time.time()
 
     subsample = poisson_sample_mesh(
-        mesh=mesh1, n_samples=n_samples, force_n_samples=force_n_samples
+        mesh=mesh1,
+        n_samples=n_samples,
+        force_n_samples=force_n_samples,
+        backend=backend,
+        verbose=verbose,
     )
     # subsample = np.unique(knn_query(mesh1.vertlist, vert_sub1))
 
